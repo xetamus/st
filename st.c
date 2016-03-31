@@ -69,6 +69,7 @@ char *argv0;
 #define LEN(a)			(sizeof(a) / sizeof(a)[0])
 #define DEFAULT(a, b)		(a) = (a) ? (a) : (b)
 #define BETWEEN(x, a, b)	((a) <= (x) && (x) <= (b))
+#define DIVCEIL(n, d)		(((n) + ((d) - 1)) / (d))
 #define ISCONTROLC0(c)		(BETWEEN(c, 0, 0x1f) || (c) == '\177')
 #define ISCONTROLC1(c)		(BETWEEN(c, 0x80, 0x9f))
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
@@ -456,7 +457,6 @@ static void xresettitle(void);
 static void xsetpointermotion(int);
 static void xseturgency(int);
 static void xsetsel(char *, Time);
-static void xtermclear(int, int, int, int);
 static void xunloadfont(Font *);
 static void xunloadfonts(void);
 static void xresize(int, int);
@@ -3309,17 +3309,6 @@ xsetcolorname(int x, const char *name)
 	return 0;
 }
 
-void
-xtermclear(int col1, int row1, int col2, int row2)
-{
-	XftDrawRect(xw.draw,
-			&dc.col[IS_SET(MODE_REVERSE) ? defaultfg : defaultbg],
-			borderpx + col1 * xw.cw,
-			borderpx + row1 * xw.ch,
-			(col2-col1+1) * xw.cw,
-			(row2-row1+1) * xw.ch);
-}
-
 /*
  * Absolute coordinates.
  */
@@ -3385,6 +3374,7 @@ xloadfont(Font *f, FcPattern *pattern)
 {
 	FcPattern *match;
 	FcResult result;
+	XGlyphInfo extents;
 
 	match = FcFontMatch(NULL, pattern, &result);
 	if (!match)
@@ -3395,6 +3385,10 @@ xloadfont(Font *f, FcPattern *pattern)
 		return 1;
 	}
 
+	XftTextExtentsUtf8(xw.dpy, f->match,
+		(const FcChar8 *) ascii_printable,
+		strlen(ascii_printable), &extents);
+
 	f->set = NULL;
 	f->pattern = FcPatternDuplicate(pattern);
 
@@ -3404,7 +3398,7 @@ xloadfont(Font *f, FcPattern *pattern)
 	f->rbearing = f->match->max_advance_width;
 
 	f->height = f->ascent + f->descent;
-	f->width = f->lbearing + f->rbearing;
+	f->width = DIVCEIL(extents.xOff, strlen(ascii_printable));
 
 	return 0;
 }
@@ -3808,7 +3802,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 		specs[numspecs].font = frc[f].font;
 		specs[numspecs].glyph = glyphidx;
 		specs[numspecs].x = (short)xp;
-		specs[numspecs].y = (short)(winy + frc[f].font->ascent);
+		specs[numspecs].y = (short)yp;
 		xp += runewidth;
 		numspecs++;
 	}
@@ -4114,7 +4108,6 @@ drawregion(int x1, int y1, int x2, int y2)
 		if (!term.dirty[y])
 			continue;
 
-		xtermclear(0, y, term.col, y);
 		term.dirty[y] = 0;
 
 		specs = term.specbuf;
