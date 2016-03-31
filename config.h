@@ -1,13 +1,15 @@
 /* See LICENSE file for copyright and license details. */
 
+#include "colors/dotshare.h"
+
 /*
  * appearance
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char font[] = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
-static int borderpx = 2;
-#define histsize 2000
+static char font[] = "CodingFontTobi:pixelsize=32:antialias=true:autohint=true";
+static int borderpx = 5;
+#define histsize 500000
 
 /*
  * What program is execed by st depends of these precedence rules:
@@ -17,7 +19,7 @@ static int borderpx = 2;
  * 4: value of shell in /etc/passwd
  * 5: value of shell in config.h
  */
-static char shell[] = "/bin/sh";
+static char shell[] = "/bin/zsh";
 static char *utmp = NULL;
 static char stty_args[] = "stty raw pass8 nl -echo -iexten -cstopb 38400";
 
@@ -64,50 +66,13 @@ static unsigned int cursorthickness = 2;
 static int bellvolume = 0;
 
 /* default TERM value */
-static char termname[] = "st-256color";
+static char termname[] = "xterm-256color";
 
 static unsigned int tabspaces = 8;
 
-/* Terminal colors (16 first used in escape sequence) */
-static const char *colorname[] = {
-	/* 8 normal colors */
-	"black",
-	"red3",
-	"green3",
-	"yellow3",
-	"blue2",
-	"magenta3",
-	"cyan3",
-	"gray90",
 
-	/* 8 bright colors */
-	"gray50",
-	"red",
-	"green",
-	"yellow",
-	"#5c5cff",
-	"magenta",
-	"cyan",
-	"white",
-
-	[255] = 0,
-
-	/* more colors can be added after 255 to use with DefaultXX */
-	"#cccccc",
-	"#555555",
-};
-
-/* bg opacity */
-static const int alpha = 0xdd;
-
-/*
- * Default colors (colorname index)
- * foreground, background, cursor, reverse cursor
- */
-static unsigned int defaultfg = 12;
-static unsigned int defaultbg = 8;
-static unsigned int defaultcs = 14;
-static unsigned int defaultrcs = 15;
+// Set background transparency
+static const int alpha = 0xff;
 
 /*
  * Default shape of cursor
@@ -126,7 +91,6 @@ static unsigned int mousefg = 7;
 static unsigned int mousebg = 0;
 
 /*
-   "black",
  * Colors used, when the specific fg == defaultfg. So in reverse mode this
  * will reverse too. Another logic would only make the simple feature too
  * complex.
@@ -138,16 +102,16 @@ static unsigned int defaultunderline = 7;
  * Internal mouse shortcuts.
  * Beware that overloading Button1 will disable the selection.
  */
-static MouseShortcut mshortcuts[] = {
+static MouseShortcut mshortcuts[1];// = {
 	/* button               mask            string */
-	{ Button4,              XK_NO_MOD,      "\031" },
-	{ Button5,              XK_NO_MOD,      "\005" },
-};
+//	{ Button4,              XK_NO_MOD,      "\031" },
+//	{ Button5,              XK_NO_MOD,      "\005" },
+//};
 
 static MouseKey mkeys[] = {
 	/* button               mask            function        argument */
-	{ Button4,              ShiftMask,      kscrollup,      {.i =  1} },
-	{ Button5,              ShiftMask,      kscrolldown,    {.i =  1} },
+	{ Button4,              XK_NO_MOD,      kscrollup,      {.i =  1} },
+	{ Button5,              XK_NO_MOD,      kscrolldown,    {.i =  1} },
 };
 
 /* Internal keyboard shortcuts. */
