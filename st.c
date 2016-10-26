@@ -67,6 +67,7 @@ char *argv0;
 #define MIN(a, b)		((a) < (b) ? (a) : (b))
 #define MAX(a, b)		((a) < (b) ? (b) : (a))
 #define LEN(a)			(sizeof(a) / sizeof(a)[0])
+#define NUMMAXLEN(x)		((int)(sizeof(x) * 2.56 + 0.5) + 1)
 #define DEFAULT(a, b)		(a) = (a) ? (a) : (b)
 #define BETWEEN(x, a, b)	((a) <= (x) && (x) <= (b))
 #define DIVCEIL(n, d)		(((n) + ((d) - 1)) / (d))
@@ -91,6 +92,8 @@ char *argv0;
 #define TLINE(y)		((y) < term.scr ? term.hist[((y) + term.histi - term.scr \
 				+ histsize + 1) % histsize] : term.line[(y) - term.scr])
 
+/* constants */
+#define ISO14755CMD		"dmenu -w %lu -p codepoint: </dev/null"
 
 enum glyph_attribute {
 	ATTR_NULL       = 0,
@@ -332,6 +335,7 @@ static void xzoomabs(const Arg *);
 static void xzoomreset(const Arg *);
 static void printsel(const Arg *);
 static void printscreen(const Arg *) ;
+static void iso14755(const Arg *);
 static void toggleprinter(const Arg *);
 static void sendbreak(const Arg *);
 
@@ -344,6 +348,8 @@ typedef struct {
 	int width;
 	int ascent;
 	int descent;
+	int badslant;
+	int badweight;
 	short lbearing;
 	short rbearing;
 	XftFont *match;
@@ -2714,6 +2720,30 @@ tprinter(char *s, size_t len)
 }
 
 void
+iso14755(const Arg *arg)
+{
+	char cmd[sizeof(ISO14755CMD) + NUMMAXLEN(xw.win)];
+	FILE *p;
+	char *us, *e, codepoint[9], uc[UTF_SIZ];
+	unsigned long utf32;
+
+	snprintf(cmd, sizeof(cmd), ISO14755CMD, xw.win);
+	if (!(p = popen(cmd, "r")))
+		return;
+
+	us = fgets(codepoint, sizeof(codepoint), p);
+	pclose(p);
+
+	if (!us || *us == '\0' || *us == '-' || strlen(us) > 7)
+		return;
+	if ((utf32 = strtoul(us, &e, 16)) == ULONG_MAX ||
+	    (*e != '\n' && *e != '\0'))
+		return;
+
+	ttysend(uc, utf8encode(utf32, uc));
+}
+
+void
 toggleprinter(const Arg *arg)
 {
 	term.mode ^= MODE_PRINT;
@@ -3441,6 +3471,7 @@ xloadfont(Font *f, FcPattern *pattern)
 	FcPattern *match;
 	FcResult result;
 	XGlyphInfo extents;
+	int wantattr, haveattr;
 
 	match = XftFontMatch(xw.dpy, xw.scr, pattern, &result);
 	if (!match)
@@ -3449,6 +3480,28 @@ xloadfont(Font *f, FcPattern *pattern)
 	if (!(f->match = XftFontOpenPattern(xw.dpy, match))) {
 		FcPatternDestroy(match);
 		return 1;
+	}
+
+	if ((XftPatternGetInteger(pattern, "slant", 0, &wantattr) ==
+	    XftResultMatch)) {
+		/*
+		 * Check if xft was unable to find a font with the appropriate
+		 * slant but gave us one anyway. Try to mitigate.
+		 */
+		if ((XftPatternGetInteger(f->match->pattern, "slant", 0,
+		    &haveattr) != XftResultMatch) || haveattr < wantattr) {
+			f->badslant = 1;
+			fputs("st: font slant does not match\n", stderr);
+		}
+	}
+
+	if ((XftPatternGetInteger(pattern, "weight", 0, &wantattr) ==
+	    XftResultMatch)) {
+		if ((XftPatternGetInteger(f->match->pattern, "weight", 0,
+		    &haveattr) != XftResultMatch) || haveattr != wantattr) {
+			f->badweight = 1;
+			fputs("st: font weight does not match\n", stderr);
+		}
 	}
 
 	XftTextExtentsUtf8(xw.dpy, f->match,
@@ -3883,14 +3936,13 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	XRenderColor colfg, colbg;
 	XRectangle r;
 
-	/* Determine foreground and background colors based on mode. */
-	if (base.fg == defaultfg) {
-		if (base.mode & ATTR_ITALIC)
-			base.fg = defaultitalic;
-		else if ((base.mode & ATTR_ITALIC) && (base.mode & ATTR_BOLD))
-			base.fg = defaultitalic;
-		else if (base.mode & ATTR_UNDERLINE)
-			base.fg = defaultunderline;
+	/* Fallback on color display for attributes not supported by the font */
+	if (base.mode & ATTR_ITALIC && base.mode & ATTR_BOLD) {
+		if (dc.ibfont.badslant || dc.ibfont.badweight)
+			base.fg = defaultattr;
+	} else if ((base.mode & ATTR_ITALIC && dc.ifont.badslant) ||
+	    (base.mode & ATTR_BOLD && dc.bfont.badweight)) {
+		base.fg = defaultattr;
 	}
 
 	if (IS_TRUECOL(base.fg)) {

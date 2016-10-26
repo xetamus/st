@@ -141,13 +141,10 @@ static unsigned int mousefg = 7;
 static unsigned int mousebg = 0;
 
 /*
-   "black",
- * Colors used, when the specific fg == defaultfg. So in reverse mode this
- * will reverse too. Another logic would only make the simple feature too
- * complex.
+ * Color used to display font attributes when fontconfig selected a font which
+ * doesn't match the ones requested.
  */
-static unsigned int defaultitalic = 11;
-static unsigned int defaultunderline = 7;
+static unsigned int defaultattr = 11;
 
 /*
  * Internal mouse shortcuts.
@@ -184,6 +181,7 @@ static Shortcut shortcuts[] = {
 	{ MODKEY,               XK_Num_Lock,    numlock,        {.i =  0} },
 	{ ShiftMask,            XK_Page_Up,     kscrollup,      {.i = -1} },
 	{ ShiftMask,            XK_Page_Down,   kscrolldown,    {.i = -1} },
+	{ MODKEY,               XK_Control_L,   iso14755,       {.i =  0} },
 };
 
 /*
