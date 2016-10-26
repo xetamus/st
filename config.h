@@ -8,6 +8,7 @@
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
 //static char font[] = "CodingFontTobi:pixelsize=32:antialias=true:autohint=true";
+//static char font[] = "tewi:pixelsize=9:antialias=true:autohint=true";
 static char font[] = "Terminus:pixelsize=20:antialias=false:autohint=true";
 static int borderpx = 5;
 #define histsize 500000
